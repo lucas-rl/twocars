@@ -12,6 +12,8 @@ struct termios orig_termios;
 char mapa[LINHAS][COLUNAS];
 int posicao1 = 0;
 int posicao2 = 9;
+int pontuacao = 0;
+
 
 void die(char* s){
 	write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -47,12 +49,20 @@ void removeCarros(){
 	} 
 }
 
-void montaCarro(int colunaInicio){
+int montaCarro(int colunaInicio){
 	for(int i = LINHAS-3; i<LINHAS; i++){
 		for(int j = colunaInicio; j<colunaInicio+3; j++){
-			mapa[i][j] = 'a';
+			if(mapa[i][j] == 'o'){	
+				mapa[i][j] = 'a';
+				pontuacao++;
+			} else if(mapa[i][j] == 'x'){
+				return 1;
+			} else {
+				mapa[i][j] = 'a';
+			}
 		}
-	} 
+	}
+       return 0;	
 }
 
 int moveCarro(){
@@ -90,6 +100,7 @@ void iniciaMapa(){
 }
 
 void desceObjetosNaColuna(int coluna){
+	mapa[LINHAS-3][coluna] = ' ';
 	for(int i = LINHAS-4; i >= 0 ; i--){
 		if(mapa[i][coluna] != ' '){
 			mapa[i+1][coluna] = mapa[i][coluna];
@@ -136,6 +147,7 @@ int main(){
 	iniciaMapa();
 	
 	int loopConta = 0;
+	int sair = 0;
 	while(1){
 		pthread_t thread;
 		pthread_create(&thread, NULL, dorme, NULL);
@@ -143,14 +155,14 @@ int main(){
 		write(STDOUT_FILENO, "\x1b[2J", 4);
 		write(STDOUT_FILENO, "\x1b[H", 3);
 	
-		if(loopConta%2 == 0) desceObjetos();	
-		if(loopConta%15 == 0) criaObjetoLado(1);
-		if(loopConta%15 == 4) criaObjetoLado(2);	
+		//if(loopConta%2 == 0) desceObjetos();	
+		desceObjetos();
+		if(loopConta%10 == 0) criaObjetoLado(1);
+		if(loopConta%10 == 4) criaObjetoLado(2);	
 
 		
 		removeCarros();
-		montaCarro(posicao1);
-		montaCarro(posicao2);
+		if(montaCarro(posicao1) || montaCarro(posicao2)) sair = 1;
 
 		char buf[LINHAS*COLUNAS];
 		int posicaobuf = 0;
@@ -160,13 +172,19 @@ int main(){
 			}
 		}
 		write(STDOUT_FILENO,&buf,LINHAS*COLUNAS);
-		int sair = moveCarro();
-	
+		
+		printf("\r\n%d\r\n", pontuacao);
+		
+		if(!sair){
+			sair = moveCarro();
+		}
+
 		loopConta++;
 
 		pthread_join(thread, NULL);
-
+		
 		if(sair) break;
+		
 	}
 }
 
