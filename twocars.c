@@ -9,6 +9,8 @@
 
 struct termios orig_termios;
 char mapa[LINHAS][COLUNAS];
+int posicao1 = 0;
+int posicao2 = 9;
 
 void die(char* s){
 	write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -44,34 +46,54 @@ void montaCarro(int colunaInicio){
 	} 
 }
 
+int moveCarro(){
+	char leitura;
+	if(read(STDIN_FILENO, &leitura, 1)){
+		if(leitura == 'f') {
+			if(posicao1 == 4){posicao1 = 0;}
+			else {posicao1 = 4;}
+		}
+		if(leitura == 'j'){
+		       if(posicao2 == 13){posicao2 = 9;}
+		       else{posicao2 = 13;}
+		}
+		if(leitura == 'q') return 1;
+	}
+	return 0;
+}
+
 int main(){
 	enableRawMode();
-	write(STDOUT_FILENO, "\x1b[2J", 4);
-	write(STDOUT_FILENO, "\x1b[H", 3);
+	
+	while(1){
+		write(STDOUT_FILENO, "\x1b[2J", 4);
+		write(STDOUT_FILENO, "\x1b[H", 3);
+	
+		for(int i = 0; i<LINHAS;i++){
+			for(int j = 0 ; j<COLUNAS-2 ;j++){
+				if(j == 3 || j == 7 || j == 8 || j == 12){ 
+					mapa[i][j] = '.';
+				} else {
+					mapa[i][j] = ' ';
+				}
+			}
+			mapa[i][COLUNAS-2] = '\r';
+			mapa[i][COLUNAS-1] = '\n';
+		}
 
-	for(int i = 0; i<LINHAS;i++){
-		for(int j = 0 ; j<COLUNAS-2 ;j++){
-			if(j == 3 || j == 7 || j == 8 || j == 12){ 
-				mapa[i][j] = '.';
-			} else {
-				mapa[i][j] = ' ';
+		montaCarro(posicao1);
+		montaCarro(posicao2);
+
+		char buf[LINHAS*COLUNAS];
+		int posicao = 0;
+		for(int i = 0; i<LINHAS;i++){
+			for(int j = 0 ; j<COLUNAS;j++){
+				buf[posicao++] = mapa[i][j];
 			}
 		}
-		mapa[i][COLUNAS-2] = '\r';
-		mapa[i][COLUNAS-1] = '\n';
+		write(STDOUT_FILENO,&buf,LINHAS*COLUNAS);
+		if(moveCarro()) break;
 	}
-
-	montaCarro(0);
-	montaCarro(9);
-
-	char buf[LINHAS*COLUNAS];
-	int posicao = 0;
-	for(int i = 0; i<LINHAS;i++){
-		for(int j = 0 ; j<COLUNAS;j++){
-			buf[posicao++] = mapa[i][j];
-		}
-	}
-	write(STDOUT_FILENO,&buf,LINHAS*COLUNAS);
 }
 
 
