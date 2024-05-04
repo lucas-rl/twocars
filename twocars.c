@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #define LINHAS 25
 #define COLUNAS 18
@@ -38,6 +39,14 @@ void enableRawMode(){
 	if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
+void removeCarros(){
+	for(int i = LINHAS-3; i<LINHAS; i++){
+		for(int j = 0; j<COLUNAS; j++){
+			if(mapa[i][j] == 'a') mapa[i][j] = ' ';
+		}
+	} 
+}
+
 void montaCarro(int colunaInicio){
 	for(int i = LINHAS-3; i<LINHAS; i++){
 		for(int j = colunaInicio; j<colunaInicio+3; j++){
@@ -62,37 +71,102 @@ int moveCarro(){
 	return 0;
 }
 
+void *dorme(void *arg){
+	usleep(100000);
+}
+
+void iniciaMapa(){
+	for(int i = 0; i<LINHAS;i++){
+		for(int j = 0 ; j<COLUNAS-2 ;j++){
+			if(j == 3 || j == 7 || j == 8 || j == 12){ 
+				mapa[i][j] = '.';
+			} else {
+				mapa[i][j] = ' ';
+			}
+		}
+		mapa[i][COLUNAS-2] = '\r';
+		mapa[i][COLUNAS-1] = '\n';
+	}
+}
+
+void desceObjetosNaColuna(int coluna){
+	for(int i = LINHAS-4; i >= 0 ; i--){
+		if(mapa[i][coluna] != ' '){
+			mapa[i+1][coluna] = mapa[i][coluna];
+			mapa[i][coluna] = ' ';
+		}
+	}
+}
+void desceObjetos(){
+	desceObjetosNaColuna(1);
+	desceObjetosNaColuna(5);
+	desceObjetosNaColuna(10);
+	desceObjetosNaColuna(14);
+}
+
+void criaObjetoNaColuna(int coluna){
+	int coisa = rand() % 2;
+	if(coisa) {
+		mapa[0][coluna] = 'x';
+	} else {
+		mapa[0][coluna] = 'o';
+	}
+}
+
+void criaObjetoLado(int lado){
+	int pista = rand() % 2;
+	int col1 = 1;
+	int col2 = 5;
+	if(lado == 2) {
+		col1 = 10;
+		col2 = 14;
+	}
+	if(pista){
+		criaObjetoNaColuna(col1);
+	} else {
+		criaObjetoNaColuna(col2);
+	}
+}
+
 int main(){
+	srand(time(NULL));
+
 	enableRawMode();
 	
+	iniciaMapa();
+	
+	int loopConta = 0;
 	while(1){
+		pthread_t thread;
+		pthread_create(&thread, NULL, dorme, NULL);
+
 		write(STDOUT_FILENO, "\x1b[2J", 4);
 		write(STDOUT_FILENO, "\x1b[H", 3);
 	
-		for(int i = 0; i<LINHAS;i++){
-			for(int j = 0 ; j<COLUNAS-2 ;j++){
-				if(j == 3 || j == 7 || j == 8 || j == 12){ 
-					mapa[i][j] = '.';
-				} else {
-					mapa[i][j] = ' ';
-				}
-			}
-			mapa[i][COLUNAS-2] = '\r';
-			mapa[i][COLUNAS-1] = '\n';
-		}
+		if(loopConta%2 == 0) desceObjetos();	
+		if(loopConta%15 == 0) criaObjetoLado(1);
+		if(loopConta%15 == 4) criaObjetoLado(2);	
 
+		
+		removeCarros();
 		montaCarro(posicao1);
 		montaCarro(posicao2);
 
 		char buf[LINHAS*COLUNAS];
-		int posicao = 0;
+		int posicaobuf = 0;
 		for(int i = 0; i<LINHAS;i++){
 			for(int j = 0 ; j<COLUNAS;j++){
-				buf[posicao++] = mapa[i][j];
+				buf[posicaobuf++] = mapa[i][j];
 			}
 		}
 		write(STDOUT_FILENO,&buf,LINHAS*COLUNAS);
-		if(moveCarro()) break;
+		int sair = moveCarro();
+	
+		loopConta++;
+
+		pthread_join(thread, NULL);
+
+		if(sair) break;
 	}
 }
 
